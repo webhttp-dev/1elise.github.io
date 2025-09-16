@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elise - AI Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px; 
+            display: flex; justify-content: center; align-items: center;
+        }
+        .container { 
+            width: 100%; max-width: 800px; 
+            background: white; border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; 
+            display: flex; flex-direction: column; height: 90vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white; padding: 20px; text-align: center;
+            flex-shrink: 0;
+        }
+        .header h1 { font-size: 2em; margin-bottom: 5px; font-weight: 300; }
+        .header p { font-size: 1em; opacity: 0.9; }
+        
+        .chat-container { 
+            flex: 1; overflow-y: auto; padding: 20px; 
+            background: #f8f9fa; display: flex; flex-direction: column;
+        }
+        
+        .message { margin-bottom: 15px; display: flex; }
+        .user-message { justify-content: flex-end; }
+        .ai-message { justify-content: flex-start; }
+        
+        .message-content { 
+            max-width: 80%; padding: 12px 16px; border-radius: 18px; 
+            word-wrap: break-word; line-height: 1.4;
+        }
+        
+        .user-message .message-content { 
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white; border-bottom-right-radius: 5px;
+        }
+        
+        .ai-message .message-content { 
+            background: white; color: #333; border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .typing-animation {
+            display: inline-block; overflow: hidden; 
+            border-right: 2px solid #4facfe; white-space: pre-wrap;
+            animation: typing 0.5s steps(40, end), blink-caret 0.75s step-end infinite;
+        }
+        
+        @keyframes typing { from { width: 0; } to { width: 100%; } }
+        @keyframes blink-caret { from, to { border-color: transparent; } 50% { border-color: #4facfe; } }
+        
+        .input-container { 
+            padding: 15px; background: white; border-top: 1px solid #e0e0e0;
+            display: flex; gap: 10px; flex-shrink: 0;
+        }
+        
+        #message-input { 
+            flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 25px;
+            outline: none; font-size: 14px; transition: border-color 0.3s;
+        }
+        
+        #message-input:focus { border-color: #4facfe; }
+        
+        #send-button {
+            padding: 12px 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 14px;
+            transition: transform 0.2s;
+        }
+        
+        #send-button:hover { transform: translateY(-1px); }
+        #send-button:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        .audio-button {
+            background: #4facfe; color: white; border: none; padding: 8px 15px;
+            border-radius: 15px; cursor: pointer; font-size: 12px; margin-top: 8px;
+            transition: background 0.2s; display: flex; align-items: center; gap: 5px;
+        }
+        
+        .audio-button:hover { background: #3ba1fe; }
+        
+        .message-time {
+            font-size: 11px; color: #888; margin-top: 5px; text-align: right;
+        }
+        
+        .loading-spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid #f3f3f3; border-top: 2px solid #4facfe;
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-track { background: #f1f1f1; }
+        .chat-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .chat-container::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        .login-container {
+            padding: 30px;
+            text-align: center;
+        }
+
+        #password-input {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            margin: 10px;
+            width: 200px;
+        }
+
+        #login-button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Elise</h1>
+            <p>AI Assistant with Memory</p>
+        </div>
+
+        <div id="login-section" class="login-container">
+            <h2>Authentication Required</h2>
+            <input type="password" id="password-input" placeholder="Enter password">
+            <button id="login-button">Login</button>
+        </div>
+        
+        <div class="chat-container" id="chat-container" style="display: none;">
+            <div class="message ai-message">
+                <div class="message-content">
+                    Hello! I'm Elise. How can I help you today?
+                    <div class="message-time">just now</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container" id="input-container" style="display: none;">
+            <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "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";
+        const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const loginSection = document.getElementById('login-section');
+        const inputContainer = document.getElementById('input-container');
+        const passwordInput = document.getElementById('password-input');
+        const loginButton = document.getElementById('login-button');
+        
+        let isProcessing = false;
+        let isAuthenticated = false;
+
+        // Kimlik doğrulama
+        loginButton.addEventListener('click', authenticate);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') authenticate();
+        });
+
+        function authenticate() {
+            const password = passwordInput.value.trim();
+            if (password === 'cetin2357') {
+                isAuthenticated = true;
+                loginSection.style.display = 'none';
+                chatContainer.style.display = 'flex';
+                inputContainer.style.display = 'flex';
+                messageInput.focus();
+            } else {
+                alert('Incorrect password. Please try again.');
+                passwordInput.value = '';
+            }
+        }
+
+        function formatTime(date = new Date()) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function addMessage(text, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + (isUser ? 'user-message' : 'ai-message');
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            if (isUser) {
+                contentDiv.textContent = text;
+            } else {
+                contentDiv.innerHTML = '<div class="typing-animation">' + text + '</div>';
+            }
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = formatTime();
+            contentDiv.appendChild(timeDiv);
+            
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 100);
+            
+            return contentDiv;
+        }
+
+        function updateMessage(element, newText) {
+            element.innerHTML = '<div class="typing-animation">' + newText + '</div>' +
+                                '<div class="message-time">' + formatTime() + '</div>';
+        }
+
+        async function getAIResponse(message) {
+            const headers = {
+                "Authorization": `Bearer ${API_KEY}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": window.location.href,
+                "X-Title": "Elise-Chat"
+            };
+
+            const payload = {
+                "model": "mistralai/mistral-7b-instruct",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are Elise, a friendly AI assistant. Your native language is English. Keep responses concise and helpful."
+                    },
+                    {
+                        "role": "user",
+                        "content": message
+                    }
+                ],
+                "temperature": 0.7,
+                "max_tokens": 300
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.choices[0].message.content;
+            } catch (error) {
+                console.error('Error:', error);
+                return "Sorry, I'm having trouble connecting right now. Please try again later.";
+            }
+        }
+
+        async function sendMessage() {
+            if (!isAuthenticated || isProcessing) return;
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            isProcessing = true;
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+            sendButton.textContent = 'Sending...';
+
+            addMessage(message, true);
+            messageInput.value = '';
+            
+            const aiMessageElement = addMessage('Thinking...', false);
+
+            try {
+                const response = await getAIResponse(message);
+                
+                // Typewriter efekti
+                let displayedText = '';
+                for (let i = 0; i < response.length; i++) {
+                    displayedText += response[i];
+                    updateMessage(aiMessageElement, displayedText);
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+
+                // Ses butonu ekle
+                const audioButton = document.createElement('button');
+                audioButton.className = 'audio-button';
+                audioButton.innerHTML = '🔊 Play Voice';
+                audioButton.onclick = () => speakText(response);
+                aiMessageElement.appendChild(audioButton);
+
+            } catch (error) {
+                updateMessage(aiMessageElement, 'Error: ' + error.message);
+            } finally {
+                isProcessing = false;
+                sendButton.disabled = false;
+                messageInput.disabled = false;
+                sendButton.textContent = 'Send';
+                messageInput.focus();
+            }
+        }
+
+        function speakText(text) {
+            try {
+                const audioButton = event.target;
+                const originalText = audioButton.innerHTML;
+                audioButton.innerHTML = '<div class="loading-spinner"></div>';
+                audioButton.disabled = true;
+
+                // Web Speech API kullanımı
+                const speech = new SpeechSynthesisUtterance(text);
+                speech.lang = 'en-US';
+                speech.rate = 0.9;
+                speech.pitch = 1.0;
+                
+                speech.onend = () => {
+                    audioButton.innerHTML = '🔊 Play Voice';
+                    audioButton.disabled = false;
+                };
+                
+                speech.onerror = () => {
+                    audioButton.innerHTML = '🔊 Play Voice';
+                    audioButton.disabled = false;
+                    alert('Voice playback failed. Please try again.');
+                };
+                
+                window.speechSynthesis.speak(speech);
+                
+            } catch (error) {
+                console.error('Voice error:', error);
+                event.target.innerHTML = '🔊 Play Voice';
+                event.target.disabled = false;
+                alert('Voice playback not supported in this browser.');
+            }
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        window.addEventListener('load', () => {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+    </script>
+</body>
+</html>
